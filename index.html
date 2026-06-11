@@ -80,29 +80,35 @@
             <h3 class="mt-2 text-sm font-medium text-slate-900">Keine Daten vorhanden</h3>
             <p class="mt-1 text-sm text-slate-500">Bitte lade eine JSON-Datei hoch, um das Dashboard zu füllen.</p>
             
-            <div class="mt-8 mx-auto max-w-3xl text-left bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm">
+            <div class="mt-8 mx-auto max-w-4xl text-left bg-slate-50 rounded-xl p-5 border border-slate-200 shadow-sm">
                 <p class="text-sm text-slate-700 mb-3">
                     Nutze den <strong>Standard-JSON-Export in DBeaver</strong>. Dieses Dashboard ist speziell für die <strong>opencode</strong> Datenbank konfiguriert. Führe dazu folgendes SQL aus:
                 </p>
                 <div class="bg-[#1e293b] rounded-lg p-4 overflow-x-auto relative group">
                     <pre class="text-xs text-emerald-400 font-mono leading-relaxed"><code>SELECT 
-    id AS session_id,
-    title,
-    time_created AS created,
-    time_updated AS last_access,
-    model,
-    (tokens_input + tokens_cache_write) AS frontend_input_tokens,
-    (tokens_output + tokens_reasoning) AS frontend_output_tokens,
-    tokens_cache_read AS frontend_cached_tokens
-FROM session
-WHERE tokens_input > 0 OR tokens_output > 0
+    s.id AS session_id,
+    s.title,
+    s.time_created AS created,
+    s.time_updated AS last_access,
+    s.model,
+    (s.tokens_input + s.tokens_cache_write) AS frontend_input_tokens,
+    (s.tokens_output + s.tokens_reasoning) AS frontend_output_tokens,
+    s.tokens_cache_read AS frontend_cached_tokens,
+    (
+        SELECT COUNT(*) 
+        FROM message m 
+        WHERE m.session_id = s.id 
+        AND json_extract(m.data, '$.role') = 'user'
+    ) AS user_message_count
+FROM session s
+WHERE s.tokens_input > 0 OR s.tokens_output > 0
 ORDER BY created DESC;</code></pre>
                 </div>
 
                 <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-3">
                     <svg class="w-5 h-5 text-amber-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
                     <p class="text-xs text-amber-800">
-                        <strong>Wichtiger Hinweis:</strong> Falls der Zugriff in DBeaver verweigert wird (Datenbank ist gelockt, weil <strong>OpenCode</strong> gerade im Hintergrund läuft), erstelle am besten kurz eine lokale Kopie der Datenbankdatei und verbinde dich mit dieser Kopie.
+                        <strong>Wichtiger Hinweis:</strong> Falls der Zugriff in DBeaver verweigert wird (Datenbank ist gelockt, weil <strong>OpenCode</strong> gerade läuft), erstelle am besten kurz eine lokale Kopie der Datenbankdatei und verbinde dich mit dieser Kopie.
                     </p>
                 </div>
 
@@ -111,7 +117,7 @@ ORDER BY created DESC;</code></pre>
                     <div class="text-xs text-slate-700">
                         <strong>Speicherort der Datenbank:</strong> Standardmäßig findest du die Datei hier:
                         <ul class="list-disc ml-4 mt-1 space-y-0.5 text-slate-600">
-                            <li><strong>Windows:</strong> <code class="bg-white px-1 py-0.5 rounded border border-slate-200">%APPDATA%\opencode\opencode.db</code> (oder <code>%LOCALAPPDATA%</code>)</li>
+                            <li><strong>Windows:</strong> <code class="bg-white px-1 py-0.5 rounded border border-slate-200">C:\Users\[DeinBenutzername]\.local\share\opencode\opencode.db</code> <br><span class="text-[10px] text-slate-500">(Hinweis: OpenCode nutzt oft Linux-ähnliche Pfade unter Windows. Seltener auch unter <code>%APPDATA%</code>)</span></li>
                             <li><strong>WSL / Linux:</strong> <code class="bg-white px-1 py-0.5 rounded border border-slate-200">~/.config/opencode/opencode.db</code> (oder <code>~/.local/share/</code>)</li>
                         </ul>
                     </div>
@@ -124,7 +130,7 @@ ORDER BY created DESC;</code></pre>
             
             <!-- Konfigurations- & Filter-Section -->
             <div class="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                <!-- Pricing Config (Fallback) -->
+                <!-- Pricing Config -->
                 <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm relative">
                     <h3 class="text-sm font-semibold text-slate-800 mb-1">Fallback Konfiguration (€ pro 1 Mio. Tokens)</h3>
                     <p class="text-xs text-slate-500 mb-3">Wird angewendet, wenn das Modell nicht bei OpenRouter gefunden wird.</p>
@@ -205,29 +211,29 @@ ORDER BY created DESC;</code></pre>
                                 <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('title')">
                                     Titel <span id="sort-title" class="text-slate-400"></span>
                                 </th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('display_model')">
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('display_model')">
                                     Modell <span id="sort-display_model" class="text-slate-400"></span>
                                 </th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('created')">
+                                <th scope="col" class="px-3 py-3 text-center text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('user_message_count')">
+                                    Anfragen <span id="sort-user_message_count" class="text-slate-400"></span>
+                                </th>
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('created')">
                                     Erstellt am <span id="sort-created" class="text-slate-400"></span>
                                 </th>
-                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('last_access')">
+                                <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('last_access')">
                                     Letzter Zugriff <span id="sort-last_access" class="text-slate-400">▼</span>
                                 </th>
-                                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('frontend_input_tokens')">
+                                <th scope="col" class="px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('frontend_input_tokens')">
                                     Input T. <span id="sort-frontend_input_tokens" class="text-slate-400"></span>
                                 </th>
-                                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('frontend_output_tokens')">
+                                <th scope="col" class="px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('frontend_output_tokens')">
                                     Output T. <span id="sort-frontend_output_tokens" class="text-slate-400"></span>
                                 </th>
-                                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('frontend_cached_tokens')">
+                                <th scope="col" class="px-3 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('frontend_cached_tokens')">
                                     Cached T. <span id="sort-frontend_cached_tokens" class="text-slate-400"></span>
                                 </th>
-                                <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('total_cost')">
+                                <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('total_cost')">
                                     Total € <span id="sort-total_cost" class="text-slate-400"></span>
-                                </th>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider">
-                                    Kostenverteilung
                                 </th>
                             </tr>
                         </thead>
@@ -247,10 +253,8 @@ ORDER BY created DESC;</code></pre>
         let currentSortColumn = 'last_access';
         let sortAscending = false;
         
-        // OpenRouter Caching
         let openRouterModels = {};
 
-        // Formatierer
         const currencyFormatter = new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' });
         const numberFormatter = new Intl.NumberFormat('de-DE');
         const dateFormatter = new Intl.DateTimeFormat('de-DE', { 
@@ -258,14 +262,12 @@ ORDER BY created DESC;</code></pre>
             hour: '2-digit', minute: '2-digit' 
         });
 
-        // Beim Start der Seite: Lade OpenRouter Pricing API
         window.onload = async function() {
             try {
                 const res = await fetch('https://openrouter.ai/api/v1/models');
                 const json = await res.json();
                 
                 json.data.forEach(m => {
-                    // OpenRouter Preise sind pro 1 Token. Wir multiplizieren mit 1 Mio für unser Frontend.
                     openRouterModels[m.id] = {
                         priceInput: parseFloat(m.pricing.prompt) * 1000000,
                         priceOutput: parseFloat(m.pricing.completion) * 1000000,
@@ -284,18 +286,11 @@ ORDER BY created DESC;</code></pre>
 
         function getOpenRouterPricing(session) {
             if (!session.or_search_id) return null;
-
-            // 1. Exakter Match (z.B. "openai/gpt-4o")
             if (openRouterModels[session.or_search_id]) return openRouterModels[session.or_search_id];
-
-            // 2. Exact Match auf Name (z.B. "gpt-4o")
             if (openRouterModels[session.display_model]) return openRouterModels[session.display_model];
-
-            // 3. EndsWith Fallback (Sucht in "anthropic/claude-3-5-sonnet" nach "claude-3-5-sonnet")
             const match = Object.keys(openRouterModels).find(key => key.endsWith('/' + session.display_model));
             if (match) return openRouterModels[match];
-
-            return null; // Nichts gefunden -> Fallback nutzen
+            return null;
         }
 
         function showError(msg) {
@@ -330,7 +325,6 @@ ORDER BY created DESC;</code></pre>
                     if (dataArray && dataArray.length > 0) {
                         allData = dataArray;
                         
-                        // Vorverarbeitung: Modell-JSON auflösen
                         allData.forEach(session => {
                             let parsedModelName = "Unbekannt";
                             let orSearchId = null;
@@ -339,7 +333,6 @@ ORDER BY created DESC;</code></pre>
                                 try {
                                     const modelObj = JSON.parse(session.model);
                                     parsedModelName = modelObj.id || session.model;
-                                    // Konstruiere "provider/id" für genauere OpenRouter Suche
                                     if (modelObj.providerID && modelObj.id) {
                                         orSearchId = `${modelObj.providerID}/${modelObj.id}`;
                                     } else {
@@ -352,14 +345,15 @@ ORDER BY created DESC;</code></pre>
                             }
                             session.display_model = parsedModelName;
                             session.or_search_id = orSearchId;
+
+                            // Fallback, falls der Zähler null oder nicht gesetzt ist
+                            session.user_message_count = session.user_message_count || 0;
                         });
 
                         document.getElementById('empty-state').classList.add('hidden');
                         document.getElementById('dashboard-content').classList.remove('hidden');
                         
-                        // Kosten berechnen und rendern
                         recalculateCosts();
-                        
                     } else {
                         showError("Keine verwertbaren Array-Daten in der JSON-Datei gefunden.");
                     }
@@ -375,7 +369,6 @@ ORDER BY created DESC;</code></pre>
         function recalculateCosts() {
             if (!allData.length) return;
 
-            // Lese die globalen Fallbacks aus
             const fbPriceInput = parseFloat(document.getElementById('price-input').value) || 0;
             const fbPriceOutput = parseFloat(document.getElementById('price-output').value) || 0;
             const fbPriceCached = parseFloat(document.getElementById('price-cached').value) || 0;
@@ -395,10 +388,7 @@ ORDER BY created DESC;</code></pre>
                     usedSource = "OpenRouter";
                     if (orPricing.priceInput !== null && !isNaN(orPricing.priceInput)) finalPriceInput = orPricing.priceInput;
                     if (orPricing.priceOutput !== null && !isNaN(orPricing.priceOutput)) finalPriceOutput = orPricing.priceOutput;
-                    // Cached Preis nur überschreiben, wenn er von der API explizit bereitgestellt wurde
-                    if (orPricing.priceCached !== null && !isNaN(orPricing.priceCached)) {
-                        finalPriceCached = orPricing.priceCached;
-                    }
+                    if (orPricing.priceCached !== null && !isNaN(orPricing.priceCached)) finalPriceCached = orPricing.priceCached;
                 }
 
                 session.pricing_source = usedSource;
@@ -419,17 +409,14 @@ ORDER BY created DESC;</code></pre>
 
             filteredData = allData.filter(session => {
                 let isValid = true;
-                
                 if (session.created && (dateFromStr || dateToStr)) {
                     const sessionDate = new Date(session.created);
                     sessionDate.setHours(0, 0, 0, 0); 
-                    
                     if (dateFromStr) {
                         const fromDate = new Date(dateFromStr);
                         fromDate.setHours(0, 0, 0, 0);
                         if (sessionDate < fromDate) isValid = false;
                     }
-                    
                     if (dateToStr) {
                         const toDate = new Date(dateToStr);
                         toDate.setHours(23, 59, 59, 999);
@@ -477,7 +464,6 @@ ORDER BY created DESC;</code></pre>
             document.getElementById('kpi-total-cost').innerText = currencyFormatter.format(totalCost);
             document.getElementById('kpi-session-count').innerText = numberFormatter.format(filteredData.length);
             document.getElementById('kpi-avg-cost').innerText = currencyFormatter.format(avgCost);
-            
             document.getElementById('kpi-max-cost').innerText = currencyFormatter.format(maxCost);
             document.getElementById('kpi-max-title').innerText = maxSessionTitle;
             document.getElementById('kpi-max-title').title = maxSessionTitle; 
@@ -509,7 +495,7 @@ ORDER BY created DESC;</code></pre>
         }
 
         function updateSortIndicators() {
-            ['title', 'display_model', 'created', 'last_access', 'frontend_input_tokens', 'frontend_output_tokens', 'frontend_cached_tokens', 'total_cost'].forEach(col => {
+            ['title', 'display_model', 'created', 'last_access', 'user_message_count', 'frontend_input_tokens', 'frontend_output_tokens', 'frontend_cached_tokens', 'total_cost'].forEach(col => {
                 const el = document.getElementById(`sort-${col}`);
                 if(el) el.innerText = '';
             });
@@ -521,57 +507,36 @@ ORDER BY created DESC;</code></pre>
             const tbody = document.getElementById('table-body');
             tbody.innerHTML = '';
 
-            const maxTotalCost = filteredData.length > 0 ? Math.max(...filteredData.map(d => d.total_cost || 0)) : 0;
-
-            filteredData.forEach(session => {
-                const tr = document.createElement('tr');
-                tr.className = "hover:bg-slate-50 transition-colors";
+            filteredData.forEach((session, idx) => {
+                const mainTr = document.createElement('tr');
+                mainTr.className = "hover:bg-slate-50 transition-colors";
                 
-                const costIn = session.cost_input || 0;
-                const costOut = session.cost_output || 0;
-                const costCache = session.cost_cached || 0;
-                const total = session.total_cost || 0;
-
-                const pctInput = maxTotalCost > 0 ? (costIn / maxTotalCost) * 100 : 0;
-                const pctOutput = maxTotalCost > 0 ? (costOut / maxTotalCost) * 100 : 0;
-                const pctCached = maxTotalCost > 0 ? (costCache / maxTotalCost) * 100 : 0;
-
                 const title = session.title || "Ohne Titel";
                 const displayTitle = title.length > 40 ? title.substring(0, 40) + '...' : title;
                 const dateCreated = session.created ? dateFormatter.format(new Date(session.created)) : '-';
                 const dateAccess = session.last_access ? dateFormatter.format(new Date(session.last_access)) : '-';
 
-                // UI Logik für das Modell Badge (OpenRouter vs Fallback)
                 const isOR = session.pricing_source === 'OpenRouter';
-                const badgeClass = isOR 
-                    ? "bg-blue-100 text-blue-700 border-blue-200" 
-                    : "bg-slate-100 text-slate-600 border-slate-200";
-                const badgeText = isOR ? "OR" : "FB";
+                const badgeClass = isOR ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-slate-100 text-slate-600 border-slate-200";
                 const tooltipText = `Quelle: ${session.pricing_source}\nInput: ${currencyFormatter.format(session.applied_prices.in)}/1M\nOutput: ${currencyFormatter.format(session.applied_prices.out)}/1M\nCached: ${currencyFormatter.format(session.applied_prices.cache)}/1M`;
 
-                tr.innerHTML = `
+                mainTr.innerHTML = `
                     <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium" title="${title}">${displayTitle}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-xs">
+                    <td class="px-3 py-4 whitespace-nowrap text-xs">
                         <div class="flex items-center gap-2 cursor-help" title="${tooltipText}">
-                            <span class="px-1.5 py-0.5 rounded-sm border ${badgeClass} text-[10px] font-bold">${badgeText}</span>
+                            <span class="px-1.5 py-0.5 rounded-sm border ${badgeClass} text-[10px] font-bold">${isOR ? "OR" : "FB"}</span>
                             <span class="text-slate-600">${session.display_model}</span>
                         </div>
                     </td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-500">${dateCreated}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-500">${dateAccess}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-500 text-right">${numberFormatter.format(session.frontend_input_tokens || 0)}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-500 text-right">${numberFormatter.format(session.frontend_output_tokens || 0)}</td>
-                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-500 text-right">${numberFormatter.format(session.frontend_cached_tokens || 0)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-bold text-right">${currencyFormatter.format(total)}</td>
-                    <td class="px-6 py-4 whitespace-nowrap w-40 lg:w-48 text-right">
-                        <div class="bar-chart-container" title="Input: ${currencyFormatter.format(costIn)} | Output: ${currencyFormatter.format(costOut)} | Cached: ${currencyFormatter.format(costCache)}">
-                            <div class="h-full bg-red-400 transition-all duration-500" style="width: ${pctInput}%;"></div>
-                            <div class="h-full bg-amber-400 transition-all duration-500" style="width: ${pctOutput}%;"></div>
-                            <div class="h-full bg-emerald-400 transition-all duration-500" style="width: ${pctCached}%;"></div>
-                        </div>
-                    </td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm font-semibold text-blue-600 text-center">${session.user_message_count}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-slate-500">${dateCreated}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-slate-500">${dateAccess}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-slate-500 text-right">${numberFormatter.format(session.frontend_input_tokens || 0)}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-slate-500 text-right">${numberFormatter.format(session.frontend_output_tokens || 0)}</td>
+                    <td class="px-3 py-4 whitespace-nowrap text-sm text-slate-500 text-right">${numberFormatter.format(session.frontend_cached_tokens || 0)}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-900 font-bold text-right">${currencyFormatter.format(session.total_cost || 0)}</td>
                 `;
-                tbody.appendChild(tr);
+                tbody.appendChild(mainTr);
             });
         }
     </script>
