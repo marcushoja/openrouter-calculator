@@ -90,6 +90,7 @@
     s.title,
     s.time_created AS created,
     s.time_updated AS last_access,
+    s.directory as directory,
     s.model,
     (s.tokens_input + s.tokens_cache_write) AS frontend_input_tokens,
     (s.tokens_output + s.tokens_reasoning) AS frontend_output_tokens,
@@ -208,7 +209,10 @@ ORDER BY created DESC;</code></pre>
                     <table class="min-w-full divide-y divide-slate-200">
                         <thead class="bg-slate-50">
                             <tr>
-                                <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('title')">
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('directory')">
+                                    Projekt <span id="sort-directory" class="text-slate-400"></span>
+                                </th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('title')">
                                     Titel <span id="sort-title" class="text-slate-400"></span>
                                 </th>
                                 <th scope="col" class="px-3 py-3 text-left text-xs font-semibold text-slate-600 uppercase tracking-wider cursor-pointer hover:bg-slate-100 transition-colors" onclick="sortTable('display_model')">
@@ -474,12 +478,22 @@ ORDER BY created DESC;</code></pre>
                 sortAscending = !sortAscending;
             } else if (!force) {
                 currentSortColumn = column;
-                sortAscending = (column === 'title' || column === 'display_model'); 
+                sortAscending = (column === 'title' || column === 'display_model' || column === 'directory'); 
             }
 
             filteredData.sort((a, b) => {
                 let valA = a[column] !== undefined && a[column] !== null ? a[column] : "";
                 let valB = b[column] !== undefined && b[column] !== null ? b[column] : "";
+
+                // Wenn wir nach Projekt-Verzeichnis sortieren, wollen wir den extrahierten Namen nehmen
+                if (column === 'directory') {
+                     const pathA = String(valA);
+                     const pathB = String(valB);
+                     const segmentsA = pathA.split(/[/\\]/).filter(Boolean);
+                     const segmentsB = pathB.split(/[/\\]/).filter(Boolean);
+                     valA = segmentsA.length > 0 ? segmentsA.pop() : "-";
+                     valB = segmentsB.length > 0 ? segmentsB.pop() : "-";
+                }
 
                 if (typeof valA === 'string' || typeof valB === 'string') {
                     valA = String(valA);
@@ -495,7 +509,7 @@ ORDER BY created DESC;</code></pre>
         }
 
         function updateSortIndicators() {
-            ['title', 'display_model', 'created', 'last_access', 'user_message_count', 'frontend_input_tokens', 'frontend_output_tokens', 'frontend_cached_tokens', 'total_cost'].forEach(col => {
+            ['directory', 'title', 'display_model', 'created', 'last_access', 'user_message_count', 'frontend_input_tokens', 'frontend_output_tokens', 'frontend_cached_tokens', 'total_cost'].forEach(col => {
                 const el = document.getElementById(`sort-${col}`);
                 if(el) el.innerText = '';
             });
@@ -511,6 +525,12 @@ ORDER BY created DESC;</code></pre>
                 const mainTr = document.createElement('tr');
                 mainTr.className = "hover:bg-slate-50 transition-colors";
                 
+                // Extrahiere den Ordnernamen aus dem gesamten Pfad
+                const dirPath = session.directory || "";
+                const segments = dirPath.split(/[/\\]/).filter(Boolean);
+                const projectName = segments.length > 0 ? segments.pop() : "-";
+                const displayProject = projectName.length > 30 ? projectName.substring(0, 30) + '...' : projectName;
+
                 const title = session.title || "Ohne Titel";
                 const displayTitle = title.length > 40 ? title.substring(0, 40) + '...' : title;
                 const dateCreated = session.created ? dateFormatter.format(new Date(session.created)) : '-';
@@ -521,7 +541,8 @@ ORDER BY created DESC;</code></pre>
                 const tooltipText = `Quelle: ${session.pricing_source}\nInput: ${currencyFormatter.format(session.applied_prices.in)}/1M\nOutput: ${currencyFormatter.format(session.applied_prices.out)}/1M\nCached: ${currencyFormatter.format(session.applied_prices.cache)}/1M`;
 
                 mainTr.innerHTML = `
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-slate-900 font-medium" title="${title}">${displayTitle}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-900 font-bold" title="${dirPath}">${displayProject}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm text-slate-700 font-medium" title="${title}">${displayTitle}</td>
                     <td class="px-3 py-4 whitespace-nowrap text-xs">
                         <div class="flex items-center gap-2 cursor-help" title="${tooltipText}">
                             <span class="px-1.5 py-0.5 rounded-sm border ${badgeClass} text-[10px] font-bold">${isOR ? "OR" : "FB"}</span>
