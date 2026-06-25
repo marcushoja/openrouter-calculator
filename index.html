@@ -44,6 +44,10 @@
 </head>
 <body class="bg-slate-50 text-slate-800 font-sans min-h-screen p-4 md:p-8">
 
+    <div id="toast" class="fixed top-4 right-4 z-50 hidden rounded-lg bg-slate-900 px-4 py-2 text-sm font-medium text-white shadow-lg">
+        In Zwischenablage kopiert
+    </div>
+
     <div class="max-w-[90rem] mx-auto space-y-6">
         
         <!-- Header & Upload Section -->
@@ -136,7 +140,7 @@ ORDER BY created DESC;</code></pre>
                             <li>
                                 <strong>Windows:</strong>
                                 <span class="inline-flex items-center gap-1.5 align-middle">
-                                    <code id="windows-db-path" class="bg-white px-1 py-0.5 rounded border border-slate-200">%USERPROFILE%\.local\share\opencode\opencode.db</code>
+                                    <code id="windows-db-path" class="bg-white px-1 py-0.5 rounded border border-slate-200">%USERPROFILE%\.local\share\opencode</code>
                                     <button type="button" onclick="copyElementText('windows-db-path', this)" class="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-colors" title="Windows-Pfad kopieren" aria-label="Windows-Pfad kopieren">
                                         <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                                     </button>
@@ -145,7 +149,7 @@ ORDER BY created DESC;</code></pre>
                             <li>
                                 <strong>WSL:</strong>
                                 <span class="inline-flex items-center gap-1.5 align-middle">
-                                    <code id="wsl-db-path" class="bg-white px-1 py-0.5 rounded border border-slate-200">\\wsl.localhost\Ubuntu\home\[Benutzername]\.local\share\opencode\opencode.db</code>
+                                    <code id="wsl-db-path" class="bg-white px-1 py-0.5 rounded border border-slate-200">\\wsl.localhost\Ubuntu\home\[Benutzername]\.local\share\opencode</code>
                                     <button type="button" onclick="copyElementText('wsl-db-path', this)" class="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-colors" title="WSL-Pfad kopieren" aria-label="WSL-Pfad kopieren">
                                         <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
                                     </button>
@@ -324,6 +328,7 @@ ORDER BY created DESC;</code></pre>
                 const originalTitle = button.title;
                 button.title = 'Kopiert';
                 button.classList.add('text-emerald-500');
+                showToast('In Zwischenablage kopiert');
                 setTimeout(() => {
                     button.title = originalTitle;
                     button.classList.remove('text-emerald-500');
@@ -332,6 +337,16 @@ ORDER BY created DESC;</code></pre>
                 showError('Kopieren in die Zwischenablage ist fehlgeschlagen.');
                 console.error('Clipboard Error:', err);
             }
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.innerText = message;
+            toast.classList.remove('hidden');
+            clearTimeout(showToast.timeoutId);
+            showToast.timeoutId = setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 1400);
         }
 
         async function copyText(text) {
