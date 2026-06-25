@@ -236,11 +236,14 @@ ORDER BY created DESC;</code></pre>
 
             <!-- Tabelle -->
             <div class="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-                <div class="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center text-xs font-medium text-slate-600">
+                <div class="p-4 border-b border-slate-100 flex flex-wrap justify-between items-center gap-4 text-xs font-medium text-slate-600">
                     <div class="flex flex-wrap gap-4">
                         <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-400 mr-2"></span> Input</div>
                         <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-amber-400 mr-2"></span> Output</div>
                         <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-emerald-400 mr-2"></span> Cached</div>
+                    </div>
+                    <div id="result-date-range" class="text-slate-500">
+                        Zeitraum: -
                     </div>
                     <div class="flex gap-4">
                         <div class="flex items-center"><span class="px-2 py-0.5 rounded-sm bg-blue-100 text-blue-700 mr-2 border border-blue-200">OR</span> OpenRouter API Preis</div>
@@ -639,12 +642,15 @@ ORDER BY created DESC;</code></pre>
                 document.getElementById('sum-output-tokens').innerText = "0";
                 document.getElementById('sum-cached-tokens').innerText = "0";
                 document.getElementById('sum-total-cost').innerText = currencyFormatter.format(0);
+                document.getElementById('result-date-range').innerText = "Zeitraum: -";
                 return;
             }
 
             let totalCost = 0;
             let maxCost = -1;
             let maxSessionTitle = "";
+            let earliestCreated = null;
+            let latestAccess = null;
             
             // Summen Variablen für die Spalten
             let sumInputTokens = 0;
@@ -663,6 +669,20 @@ ORDER BY created DESC;</code></pre>
                     maxCost = cost;
                     maxSessionTitle = session.title || "Unbekannt";
                 }
+
+                if (session.created) {
+                    const createdDate = new Date(session.created);
+                    if (!isNaN(createdDate) && (!earliestCreated || createdDate < earliestCreated)) {
+                        earliestCreated = createdDate;
+                    }
+                }
+
+                if (session.last_access) {
+                    const accessDate = new Date(session.last_access);
+                    if (!isNaN(accessDate) && (!latestAccess || accessDate > latestAccess)) {
+                        latestAccess = accessDate;
+                    }
+                }
             });
 
             const avgCost = totalCost / filteredData.length;
@@ -680,6 +700,17 @@ ORDER BY created DESC;</code></pre>
             document.getElementById('sum-output-tokens').innerText = numberFormatter.format(sumOutputTokens);
             document.getElementById('sum-cached-tokens').innerText = numberFormatter.format(sumCachedTokens);
             document.getElementById('sum-total-cost').innerText = currencyFormatter.format(totalCost);
+            document.getElementById('result-date-range').innerText = formatResultDateRange(earliestCreated, latestAccess);
+        }
+
+        function formatResultDateRange(earliestCreated, latestAccess) {
+            if (!earliestCreated && !latestAccess) {
+                return "Zeitraum: -";
+            }
+
+            const start = earliestCreated ? earliestCreated.toLocaleDateString('de-DE') : '-';
+            const end = latestAccess ? latestAccess.toLocaleDateString('de-DE') : '-';
+            return `Zeitraum: ${start} - ${end}`;
         }
 
         function sortTable(column, force = false) {
