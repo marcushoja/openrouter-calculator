@@ -93,8 +93,11 @@
                 <p class="text-sm text-slate-700 mb-3">
                     Nutze den <strong>Standard-JSON-Export in DBeaver</strong>. Dieses Dashboard ist speziell für die <strong>opencode</strong> Datenbank konfiguriert. Führe dazu folgendes SQL aus:
                 </p>
-                <div class="bg-[#1e293b] rounded-lg p-4 overflow-x-auto relative group">
-                    <pre class="text-xs text-emerald-400 font-mono leading-relaxed"><code>SELECT 
+                <div class="bg-[#1e293b] rounded-lg p-4 pr-12 overflow-x-auto relative group">
+                    <button type="button" onclick="copyElementText('sql-query', this)" class="absolute top-2 right-2 p-1.5 rounded-md text-slate-300 hover:text-white hover:bg-white/10 transition-colors" title="SQL kopieren" aria-label="SQL kopieren">
+                        <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                    </button>
+                    <pre class="text-xs text-emerald-400 font-mono leading-relaxed"><code id="sql-query">SELECT 
     s.id AS session_id,
     s.title,
     s.time_created AS created,
@@ -126,9 +129,25 @@ ORDER BY created DESC;</code></pre>
                     <svg class="w-5 h-5 text-slate-500 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path></svg>
                     <div class="text-xs text-slate-700">
                         <strong>Speicherort der Datenbank:</strong> Standardmäßig findest du die Datei hier:
-                        <ul class="list-disc ml-4 mt-1 space-y-0.5 text-slate-600">
-                            <li><strong>Windows:</strong> <code class="bg-white px-1 py-0.5 rounded border border-slate-200">C:\Users\[DeinBenutzername]\.local\share\opencode\opencode.db</code> <br><span class="text-[10px] text-slate-500">(Hinweis: OpenCode nutzt oft Linux-ähnliche Pfade unter Windows. Seltener auch unter <code>%APPDATA%</code>)</span></li>
-                            <li><strong>WSL / Linux:</strong> <code class="bg-white px-1 py-0.5 rounded border border-slate-200">~/.config/opencode/opencode.db</code> (oder <code>~/.local/share/</code>)</li>
+                        <ul class="list-disc ml-4 mt-1 space-y-1 text-slate-600">
+                            <li>
+                                <strong>Windows:</strong>
+                                <span class="inline-flex items-center gap-1.5 align-middle">
+                                    <code id="windows-db-path" class="bg-white px-1 py-0.5 rounded border border-slate-200">%USERPROFILE%\.local\share\opencode\opencode.db</code>
+                                    <button type="button" onclick="copyElementText('windows-db-path', this)" class="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-colors" title="Windows-Pfad kopieren" aria-label="Windows-Pfad kopieren">
+                                        <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                    </button>
+                                </span>
+                            </li>
+                            <li>
+                                <strong>WSL:</strong>
+                                <span class="inline-flex items-center gap-1.5 align-middle">
+                                    <code id="wsl-db-path" class="bg-white px-1 py-0.5 rounded border border-slate-200">\\wsl.localhost\Ubuntu\home\[Benutzername]\.local\share\opencode\opencode.db</code>
+                                    <button type="button" onclick="copyElementText('wsl-db-path', this)" class="p-1 rounded text-slate-500 hover:text-slate-900 hover:bg-white border border-transparent hover:border-slate-200 transition-colors" title="WSL-Pfad kopieren" aria-label="WSL-Pfad kopieren">
+                                        <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+                                    </button>
+                                </span>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -292,6 +311,47 @@ ORDER BY created DESC;</code></pre>
             day: '2-digit', month: '2-digit', year: 'numeric', 
             hour: '2-digit', minute: '2-digit' 
         });
+
+        async function copyElementText(elementId, button) {
+            const element = document.getElementById(elementId);
+            if (!element) return;
+
+            try {
+                await copyText(element.innerText.trim());
+                const originalTitle = button.title;
+                button.title = 'Kopiert';
+                button.classList.add('text-emerald-500');
+                setTimeout(() => {
+                    button.title = originalTitle;
+                    button.classList.remove('text-emerald-500');
+                }, 1200);
+            } catch (err) {
+                showError('Kopieren in die Zwischenablage ist fehlgeschlagen.');
+                console.error('Clipboard Error:', err);
+            }
+        }
+
+        async function copyText(text) {
+            if (navigator.clipboard && window.isSecureContext) {
+                await navigator.clipboard.writeText(text);
+                return;
+            }
+
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            textarea.focus();
+            textarea.select();
+
+            const copied = document.execCommand('copy');
+            textarea.remove();
+
+            if (!copied) {
+                throw new Error('document.execCommand("copy") returned false');
+            }
+        }
 
         window.onload = async function() {
             try {
