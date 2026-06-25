@@ -58,11 +58,14 @@
                 <p class="text-slate-500 text-sm mt-1">Lade deine JSON-Exportdatei hoch, um die Kosten zu analysieren.</p>
             </div>
             
-            <div class="mt-4 md:mt-0 flex gap-3 items-center">
+            <div class="mt-4 md:mt-0 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+                <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-lg px-4 py-2 w-full sm:w-64 text-center text-xs text-slate-500 bg-slate-50 hover:bg-blue-50 hover:border-blue-300 transition-colors flex items-center justify-center" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+                    JSON-Dateien hier ablegen<br class="hidden sm:block">Mehrere Dateien werden gemergt
+                </div>
                 <label class="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg shadow-sm transition duration-150 ease-in-out flex items-center gap-2">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path></svg>
-                    JSON Datei auswählen
-                    <input type="file" id="file-upload" accept=".json" onchange="handleFileUpload(event)">
+                    JSON-Datei(en) auswählen
+                    <input type="file" id="file-upload" accept=".json" multiple onchange="handleFileUpload(event)">
                 </label>
             </div>
         </div>
@@ -391,73 +394,113 @@ ORDER BY created DESC;</code></pre>
             setTimeout(() => errorDiv.classList.add('hidden'), 5000);
         }
 
+        function handleDragOver(event) {
+            event.preventDefault();
+            document.getElementById('drop-zone').classList.add('bg-blue-50', 'border-blue-400', 'text-blue-700');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            document.getElementById('drop-zone').classList.remove('bg-blue-50', 'border-blue-400', 'text-blue-700');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            handleDragLeave(event);
+            processFiles(event.dataTransfer.files);
+        }
+
         function handleFileUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+            processFiles(event.target.files);
+            event.target.value = '';
+        }
 
-            const reader = new FileReader();
-            
-            reader.onload = function(e) {
-                try {
-                    const parsedJson = JSON.parse(e.target.result);
-                    let dataArray = null;
+        async function processFiles(fileList) {
+            const files = Array.from(fileList || []).filter(file => file.name.toLowerCase().endsWith('.json'));
+            if (!files.length) {
+                showError('Bitte mindestens eine JSON-Datei auswählen oder ablegen.');
+                return;
+            }
 
-                    if (Array.isArray(parsedJson)) {
-                        dataArray = parsedJson;
-                    } else if (typeof parsedJson === 'object') {
-                        for (const key in parsedJson) {
-                            if (Array.isArray(parsedJson[key])) {
-                                dataArray = parsedJson[key];
-                                break;
-                            }
-                        }
-                    }
+            try {
+                const parsedFiles = await Promise.all(files.map(readJsonFile));
+                const mergedData = parsedFiles.flatMap(extractDataArray).filter(Boolean);
 
-                    if (dataArray && dataArray.length > 0) {
-                        allData = dataArray;
-                        
-                        allData.forEach(session => {
-                            let parsedModelName = "Unbekannt";
-                            let orSearchId = null;
-
-                            if (session.model) {
-                                try {
-                                    const modelObj = JSON.parse(session.model);
-                                    parsedModelName = modelObj.id || session.model;
-                                    if (modelObj.providerID && modelObj.id) {
-                                        orSearchId = `${modelObj.providerID}/${modelObj.id}`;
-                                    } else {
-                                        orSearchId = parsedModelName;
-                                    }
-                                } catch (err) {
-                                    parsedModelName = session.model; 
-                                    orSearchId = session.model;
-                                }
-                            }
-                            session.display_model = parsedModelName;
-                            session.or_search_id = orSearchId;
-
-                            // Fallback, falls der Zähler null oder nicht gesetzt ist
-                            session.user_message_count = session.user_message_count || 0;
-                        });
-
-                        // Befülle das Dropdown mit allen eindeutigen Projekten
-                        populateProjectDropdown();
-
-                        document.getElementById('empty-state').classList.add('hidden');
-                        document.getElementById('dashboard-content').classList.remove('hidden');
-                        
-                        recalculateCosts();
-                    } else {
-                        showError("Keine verwertbaren Array-Daten in der JSON-Datei gefunden.");
-                    }
-                } catch (error) {
-                    showError("Ungültige JSON-Datei. Fehler beim Parsen.");
-                    console.error("JSON Parse Error:", error);
+                if (!mergedData.length) {
+                    showError('Keine verwertbaren Array-Daten in den JSON-Dateien gefunden.');
+                    return;
                 }
-            };
-            
-            reader.readAsText(file);
+
+                allData = mergedData;
+                prepareSessions();
+
+                populateProjectDropdown();
+                document.getElementById('empty-state').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+
+                recalculateCosts();
+            } catch (error) {
+                showError('Ungültige JSON-Datei. Fehler beim Parsen.');
+                console.error('JSON Parse Error:', error);
+            }
+        }
+
+        function readJsonFile(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = event => {
+                    try {
+                        resolve(JSON.parse(event.target.result));
+                    } catch (error) {
+                        reject(error);
+                    }
+                };
+                reader.onerror = reject;
+                reader.readAsText(file);
+            });
+        }
+
+        function extractDataArray(parsedJson) {
+            if (Array.isArray(parsedJson)) {
+                return parsedJson;
+            }
+
+            if (parsedJson && typeof parsedJson === 'object') {
+                for (const key in parsedJson) {
+                    if (Array.isArray(parsedJson[key])) {
+                        return parsedJson[key];
+                    }
+                }
+            }
+
+            return [];
+        }
+
+        function prepareSessions() {
+            allData.forEach(session => {
+                let parsedModelName = "Unbekannt";
+                let orSearchId = null;
+
+                if (session.model) {
+                    try {
+                        const modelObj = JSON.parse(session.model);
+                        parsedModelName = modelObj.id || session.model;
+                        if (modelObj.providerID && modelObj.id) {
+                            orSearchId = `${modelObj.providerID}/${modelObj.id}`;
+                        } else {
+                            orSearchId = parsedModelName;
+                        }
+                    } catch (err) {
+                        parsedModelName = session.model;
+                        orSearchId = session.model;
+                    }
+                }
+                session.display_model = parsedModelName;
+                session.or_search_id = orSearchId;
+
+                // Fallback, falls der Zähler null oder nicht gesetzt ist
+                session.user_message_count = session.user_message_count || 0;
+            });
         }
 
         function populateProjectDropdown() {
